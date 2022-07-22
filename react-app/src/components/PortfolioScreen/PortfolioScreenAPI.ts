@@ -12,7 +12,7 @@ import {
   RequestStateLoading,
 } from "../../models/RequestState";
 import { useDistributionAPI } from "../../api/distributionAPI";
-import { ColumnOrder } from "../SectionedTable/SectionedTable";
+import * as Table from "../common/Table";
 import { useBankAPI } from "../../api/bankAPI";
 import PortfolioScreenModel, { Portfolio, Stake } from "./PortfolioScreenModel";
 
@@ -21,8 +21,8 @@ type PortfolioScreenRequestState = RequestState<PortfolioScreenModel>;
 export const usePortfolioQuery = (): {
   requestState: PortfolioScreenRequestState;
   fetch: (address?: string) => Promise<void>;
-  stakesOrder: ColumnOrder;
-  setStakesOrder: (order: ColumnOrder) => void;
+  stakesOrder: Table.ColumnOrder;
+  setStakesOrder: (order: Table.ColumnOrder) => void;
 } => {
   const [requestState, setRequestState] =
     useState<PortfolioScreenRequestState>(RequestStateInitial);
@@ -35,7 +35,7 @@ export const usePortfolioQuery = (): {
 
   const [stakesOrder, setStakesOrder] = useState({
     id: "name",
-    direction: "asc" as ColumnOrder["direction"],
+    direction: "asc" as Table.ColumnOrder["direction"],
   });
 
   const isValidAddress = useCallback(
