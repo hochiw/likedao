@@ -14,7 +14,14 @@ import {
 import { useDistributionAPI } from "../../api/distributionAPI";
 import * as Table from "../common/Table";
 import { useBankAPI } from "../../api/bankAPI";
-import PortfolioScreenModel, { Portfolio, Stake } from "./PortfolioScreenModel";
+import {
+  calculateValidatorExpectedReturn,
+  calculateValidatorVotingPower,
+} from "../../models/validator";
+import PortfolioScreenModel, {
+  Portfolio,
+  StakedValidatorInfo,
+} from "./PortfolioScreenModel";
 
 type PortfolioScreenRequestState = RequestState<PortfolioScreenModel>;
 
@@ -100,26 +107,45 @@ export const usePortfolioQuery = (): {
         (delegation) => delegation.delegation.validatorAddress
       );
 
-      const [rewards, validators, expectedReturns] = await Promise.all([
-        distribution.getDelegationRewardsByValidators(
-          address,
-          validatorAddresses
-        ),
-        stakingAPI.getValidators(validatorAddresses),
-        distribution.getBatchValidatorExpectedReturn(validatorAddresses),
-      ]);
+      const [annualProvisions, stakingPool, rewards, validators] =
+        await Promise.all([
+          query.mint.annualProvisions(),
+          stakingAPI.getPool(),
+          distribution.getDelegationRewardsByValidators(
+            address,
+            validatorAddresses
+          ),
+          stakingAPI.getValidators(validatorAddresses),
+        ]);
+
+      const calculatedValidatorInfo = validators.map((validator) => {
+        return {
+          expectedReturn: calculateValidatorExpectedReturn(
+            annualProvisions,
+            stakingPool,
+            validator
+          ),
+          votingPower: calculateValidatorVotingPower(
+            stakingPool,
+            new BigNumber(validator.tokens)
+          ),
+        };
+      });
 
       // merge stakes and delegation rewards into stake entries
-      const stakeEntries: Stake[] = delegations.map((delegation, i) => ({
-        ...delegation,
-        reward: rewards[i],
-        validator: validators[i],
-        expectedReturn: expectedReturns[i],
-      }));
+      const stakeEntries: StakedValidatorInfo[] = delegations.map(
+        (delegation, i) => ({
+          ...delegation,
+          reward: rewards[i],
+          validator: validators[i],
+          expectedReturn: calculatedValidatorInfo[i].expectedReturn,
+          votingPower: calculatedValidatorInfo[i].votingPower,
+        })
+      );
 
       return stakeEntries;
     },
-    [distribution, stakingAPI]
+    [distribution, query.mint, stakingAPI]
   );
 
   const fetch = useCallback(
@@ -133,14 +159,18 @@ export const usePortfolioQuery = (): {
           }
           const portfolio = await fetchAddressPortfolio(address);
           const stakes = await fetchStakes(address);
-          setRequestState(RequestStateLoaded({ portfolio, stakes }));
+          setRequestState(
+            RequestStateLoaded({ portfolio, stakedValidatorInfo: stakes })
+          );
         } else {
           if (wallet.status !== ConnectionStatus.Connected) {
             throw new Error("Wallet not connected.");
           }
           const portfolio = await fetchAddressPortfolio(wallet.account.address);
           const stakes = await fetchStakes(wallet.account.address);
-          setRequestState(RequestStateLoaded({ portfolio, stakes }));
+          setRequestState(
+            RequestStateLoaded({ portfolio, stakedValidatorInfo: stakes })
+          );
         }
       } catch (err: unknown) {
         if (err instanceof Error) {
@@ -159,34 +189,27 @@ export const usePortfolioQuery = (): {
     return RequestStateLoaded({
       ...requestState.data,
       // eslint-disable-next-line complexity
-      stakes: requestState.data.stakes.sort((a, b) => {
+      stakes: requestState.data.stakedValidatorInfo.sort((a, b) => {
+        const direction = stakesOrder.direction === "asc" ? 1 : -1;
         switch (stakesOrder.id) {
           case "name":
             return (
-              a.validator.description.moniker.localeCompare(
-                b.validator.description.moniker
-              ) * (stakesOrder.direction === "asc" ? 1 : -1)
+              a.validator.description!.moniker.localeCompare(
+                b.validator.description!.moniker
+              ) * direction
             );
           case "staked":
             return (
-              a.balance.amount.minus(b.balance.amount).toNumber() *
-              (stakesOrder.direction === "asc" ? 1 : -1)
+              a.balance.amount.minus(b.balance.amount).toNumber() * direction
             );
           case "rewards":
             return (
-              a.reward.amount.minus(b.reward.amount).toNumber() *
-              (stakesOrder.direction === "asc" ? 1 : -1)
+              a.reward.amount.minus(b.reward.amount).toNumber() * direction
             );
           case "expectedReturns":
-            return (
-              (a.expectedReturn - b.expectedReturn) *
-              (stakesOrder.direction === "asc" ? 1 : -1)
-            );
+            return (a.expectedReturn - b.expectedReturn) * direction;
           case "votingPower":
-            return (
-              (a.validator.votePower - b.validator.votePower) *
-              (stakesOrder.direction === "asc" ? 1 : -1)
-            );
+            return (a.votingPower - b.votingPower) * direction;
           default:
             return 1;
         }

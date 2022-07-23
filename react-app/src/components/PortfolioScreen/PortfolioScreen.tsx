@@ -118,7 +118,7 @@ const PortfolioScreen: React.FC = () => {
         isLoading={!isRequestStateLoaded(portfolioRequestState)}
         stakes={
           isRequestStateLoaded(portfolioRequestState)
-            ? portfolioRequestState.data.stakes
+            ? portfolioRequestState.data.stakedValidatorInfo
             : null
         }
         isYourPortfolio={isYourPortfolio}

@@ -11,11 +11,11 @@ import {
 import * as Table from "../common/Table";
 import LoadingSpinner from "../common/LoadingSpinner/LoadingSpinner";
 import AppRoutes from "../../navigation/AppRoutes";
-import { Stake } from "./PortfolioScreenModel";
+import { StakedValidatorInfo } from "./PortfolioScreenModel";
 
 interface StakesPanelProps {
   isLoading: boolean;
-  stakes: Stake[] | null;
+  stakes: StakedValidatorInfo[] | null;
   isYourPortfolio: boolean;
   order: Table.ColumnOrder;
   setOrder: (order: Table.ColumnOrder) => void;
@@ -63,7 +63,7 @@ const StakesPanel: React.FC<StakesPanelProps> = ({
       </div>
 
       <Table.Table items={stakes} sortOrder={order} onSort={setOrder}>
-        <Table.Column<Stake>
+        <Table.Column<StakedValidatorInfo>
           id="name"
           titleId="StakesPanel.name"
           sortable={true}
@@ -88,7 +88,7 @@ const StakesPanel: React.FC<StakesPanelProps> = ({
                       item.validator.operatorAddress
                     )}
                   >
-                    {item.validator.description.moniker}
+                    {item.validator.description?.moniker}
                   </Link>
                 </h3>
                 <p
@@ -105,7 +105,7 @@ const StakesPanel: React.FC<StakesPanelProps> = ({
             </div>
           )}
         </Table.Column>
-        <Table.Column<Stake>
+        <Table.Column<StakedValidatorInfo>
           id="staked"
           titleId="StakesPanel.staked"
           sortable={true}
@@ -123,7 +123,7 @@ const StakesPanel: React.FC<StakesPanelProps> = ({
             </span>
           )}
         </Table.Column>
-        <Table.Column<Stake>
+        <Table.Column<StakedValidatorInfo>
           id="rewards"
           titleId="StakesPanel.rewards"
           sortable={true}
@@ -143,7 +143,7 @@ const StakesPanel: React.FC<StakesPanelProps> = ({
             </span>
           )}
         </Table.Column>
-        <Table.Column<Stake>
+        <Table.Column<StakedValidatorInfo>
           id="expectedReturns"
           titleId="StakesPanel.expectedReturns"
           sortable={true}
@@ -161,7 +161,7 @@ const StakesPanel: React.FC<StakesPanelProps> = ({
             </span>
           )}
         </Table.Column>
-        <Table.Column<Stake>
+        <Table.Column<StakedValidatorInfo>
           id="votingPower"
           titleId="StakesPanel.votingPower"
           sortable={true}
@@ -175,7 +175,7 @@ const StakesPanel: React.FC<StakesPanelProps> = ({
                 "text-gray-500"
               )}
             >
-              {(item.validator.votePower * 100).toFixed(2)}%
+              {(item.votingPower * 100).toFixed(2)}%
             </span>
           )}
         </Table.Column>

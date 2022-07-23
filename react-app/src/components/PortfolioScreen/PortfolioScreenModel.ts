@@ -1,14 +1,17 @@
-import { Delegation } from "cosmjs-types/cosmos/staking/v1beta1/staking";
+import {
+  Delegation,
+  Validator as RPCValidator,
+} from "cosmjs-types/cosmos/staking/v1beta1/staking";
 import { BigNumberCoin } from "../../models/coin";
 import { ProposalHistory } from "../ProposalHistory/ProposalHistoryModel";
-import { ValidatorRPC } from "../../models/cosmos/staking";
 
-export interface Stake {
+export interface StakedValidatorInfo {
   reward: BigNumberCoin;
   delegation: Delegation;
   balance: BigNumberCoin;
-  validator: ValidatorRPC;
+  validator: RPCValidator;
   expectedReturn: number;
+  votingPower: number;
 }
 
 export interface Portfolio {
@@ -25,5 +28,5 @@ export interface PortfolioScreenGraphql extends ProposalHistory {}
 
 export default interface PortfolioScreenModel {
   portfolio: Portfolio;
-  stakes: Stake[];
+  stakedValidatorInfo: StakedValidatorInfo[];
 }
