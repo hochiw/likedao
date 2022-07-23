@@ -3,6 +3,7 @@ import BigNumber from "bignumber.js";
 import { ValidatorSigningInfo } from "cosmjs-types/cosmos/slashing/v1beta1/slashing";
 import {
   Commission,
+  Delegation,
   Pool,
   Validator,
 } from "cosmjs-types/cosmos/staking/v1beta1/staking";
@@ -10,6 +11,13 @@ import { Any } from "cosmjs-types/google/protobuf/any";
 import Config from "../config/Config";
 import { pubKeyToBech32 } from "../utils/address";
 import { convertTimestampToDate } from "../utils/datetime";
+import { BigNumberCoin } from "./coin";
+
+export interface YourStake {
+  delegation: Delegation;
+  balance: BigNumberCoin;
+  reward: BigNumberCoin;
+}
 
 export interface BigNumberValidatorCommission {
   commissionRates: {

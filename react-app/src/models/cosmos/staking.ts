@@ -7,6 +7,7 @@ import {
   MsgDelegate,
   MsgUndelegate,
 } from "cosmjs-types/cosmos/staking/v1beta1/tx";
+
 interface DelegateMessageBody {
   delegatorAddress: string;
   validatorAddress: string;
