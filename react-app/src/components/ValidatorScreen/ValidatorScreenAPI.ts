@@ -11,6 +11,7 @@ import {
   RequestStateLoaded,
   RequestStateLoading,
   RequestStateError,
+  isRequestStateLoaded,
 } from "../../models/RequestState";
 import { useQueryClient } from "../../providers/QueryClientProvider";
 import { useWallet, ConnectionStatus } from "../../providers/WalletProvider";
@@ -22,6 +23,7 @@ import {
   calculateValidatorUptime,
   calculateValidatorVotingPower,
 } from "../../models/validator";
+import * as Table from "../common/Table";
 import {
   AggregatedValidator,
   Validator,
@@ -33,6 +35,8 @@ export type FilterKey = "all" | "active" | "inactive";
 export const useValidatorsQuery = (): {
   fetch: () => Promise<void>;
   requestState: RequestState<ValidatorScreenModel>;
+  order: Table.ColumnOrder;
+  setOrder: (order: Table.ColumnOrder) => void;
 } => {
   const [requestState, setRequestState] =
     useState<RequestState<ValidatorScreenModel>>(RequestStateInitial);
@@ -42,6 +46,79 @@ export const useValidatorsQuery = (): {
   const distributionAPI = useDistributionAPI();
   const govAPI = useGovAPI();
   const { query, stargateQuery } = useQueryClient();
+
+  const [order, setOrder] = useState({
+    id: "",
+    direction: "asc" as Table.ColumnOrder["direction"],
+  });
+
+  const sortValidators = useCallback(
+    (validators: AggregatedValidator[], order: Table.ColumnOrder) => {
+      // eslint-disable-next-line complexity
+      return validators.sort((a, b) => {
+        const direction = order.direction === "asc" ? 1 : -1;
+        switch (order.id) {
+          case "name":
+            return (
+              a.validator.description.moniker.localeCompare(
+                b.validator.description.moniker
+              ) * direction
+            );
+          case "votingPower":
+            return (
+              (a.validator.votingPower - b.validator.votingPower) * direction
+            );
+          case "staked":
+            return (
+              new BigNumber(a.stake?.balance.amount ?? 0)
+                .minus(b.stake?.balance.amount ?? 0)
+                .toNumber() * direction
+            );
+          case "rewards":
+            return (
+              new BigNumber(a.stake?.reward.amount ?? 0)
+                .minus(b.stake?.reward.amount ?? 0)
+                .toNumber() * direction
+            );
+          case "expectedReturns":
+            return (
+              (a.validator.expectedReturn - b.validator.expectedReturn) *
+              direction
+            );
+          case "participations":
+            return (
+              (a.validator.participatedProposalCount /
+                a.validator.relativeTotalProposalCount -
+                b.validator.participatedProposalCount /
+                  b.validator.relativeTotalProposalCount) *
+              direction
+            );
+          case "uptime":
+            return (a.validator.uptime - b.validator.uptime) * direction;
+          default:
+            return (a.validator.jailed ? 1 : -1) * direction;
+        }
+      });
+    },
+    []
+  );
+
+  const onSort = useCallback(
+    (order: Table.ColumnOrder) => {
+      if (!isRequestStateLoaded(requestState)) return;
+
+      setOrder(order);
+      setRequestState(
+        RequestStateLoaded({
+          aggregatedValidators: sortValidators(
+            requestState.data.aggregatedValidators,
+            order
+          ),
+        })
+      );
+    },
+    [requestState, sortValidators]
+  );
 
   const fetch = useCallback(async () => {
     setRequestState(RequestStateLoading);
@@ -152,7 +229,9 @@ export const useValidatorsQuery = (): {
 
       setRequestState(
         RequestStateLoaded({
-          aggregatedValidators,
+          aggregatedValidators: aggregatedValidators.sort((a) => {
+            return a.validator.jailed ? 1 : -1;
+          }),
         })
       );
     } catch (err: unknown) {
@@ -179,5 +258,7 @@ export const useValidatorsQuery = (): {
   return {
     fetch,
     requestState,
+    order,
+    setOrder: onSort,
   };
 };

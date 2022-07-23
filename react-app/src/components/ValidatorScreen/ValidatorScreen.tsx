@@ -77,9 +77,12 @@ const ValidatorScreen: React.FC = () => {
     [setSearchParams]
   );
 
-  const { requestState, fetch: fetchValidators } = useValidatorsQuery(
-    VALIDATOR_LIST_PAGE_SIZE
-  );
+  const {
+    requestState,
+    fetch: fetchValidators,
+    order,
+    setOrder,
+  } = useValidatorsQuery();
 
   const validators = useMemo(() => {
     if (!isRequestStateLoaded(requestState)) return [];
@@ -142,6 +145,8 @@ const ValidatorScreen: React.FC = () => {
         <Table.Table
           items={paginatedValidators}
           isLoading={isRequestStateLoading(requestState)}
+          sortOrder={order}
+          onSort={setOrder}
         >
           <Table.Column<AggregatedValidator>
             id="name"
@@ -290,7 +295,7 @@ const ValidatorScreen: React.FC = () => {
               </div>
             )}
           </Table.Column>
-          <Table.Column<any>
+          <Table.Column<AggregatedValidator>
             id="uptime"
             titleId="ValidatorScreen.validatorList.uptime"
             sortable={true}
@@ -304,7 +309,7 @@ const ValidatorScreen: React.FC = () => {
                   "text-gray-500"
                 )}
               >
-                {`${(item.uptime * 100).toFixed(2)}%`}
+                {`${(item.validator.uptime * 100).toFixed(2)}%`}
               </span>
             )}
           </Table.Column>
