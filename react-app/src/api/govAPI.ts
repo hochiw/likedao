@@ -1,6 +1,7 @@
 import { useCallback, useMemo } from "react";
 import BigNumber from "bignumber.js";
 import { Coin } from "@cosmjs/stargate";
+import { ProposalStatus, Proposal } from "cosmjs-types/cosmos/gov/v1beta1/gov";
 import { ConnectionStatus, useWallet } from "../providers/WalletProvider";
 import Config from "../config/Config";
 import * as gov from "../models/cosmos/gov";
@@ -33,6 +34,8 @@ interface IGovAPI {
   ): Promise<SignedTx>;
   getMinDepositParams(): Promise<BigNumberCoin>;
   getAllParams(): Promise<gov.GovParams>;
+  getParticipatedProposals(address: string): Promise<Proposal[]>;
+  getAllProposals(): Promise<Proposal[]>;
 }
 
 const CoinMinimalDenom = Config.chainInfo.currency.coinMinimalDenom;
@@ -151,6 +154,48 @@ export const useGovAPI = (): IGovAPI => {
     [cosmos, bank, wallet]
   );
 
+  const getParticipatedProposals = useCallback(
+    async (address: string) => {
+      const allProposals = [];
+      let startAtKey: Uint8Array | undefined;
+      do {
+        const { proposals, pagination } = await query.gov.proposals(
+          ProposalStatus.PROPOSAL_STATUS_UNSPECIFIED,
+          "",
+          address,
+          startAtKey
+        );
+        allProposals.push(...proposals);
+        startAtKey = pagination?.nextKey;
+      } while (startAtKey && startAtKey.length !== 0);
+
+      return allProposals.filter(
+        (p) =>
+          p.status === ProposalStatus.PROPOSAL_STATUS_PASSED ||
+          p.status === ProposalStatus.PROPOSAL_STATUS_REJECTED ||
+          p.status === ProposalStatus.PROPOSAL_STATUS_VOTING_PERIOD
+      );
+    },
+    [query.gov]
+  );
+
+  const getAllProposals = useCallback(async () => {
+    const allProposals = [];
+    let startAtKey: Uint8Array | undefined;
+    do {
+      const { proposals, pagination } = await query.gov.proposals(
+        ProposalStatus.PROPOSAL_STATUS_UNSPECIFIED,
+        "",
+        "",
+        startAtKey
+      );
+      allProposals.push(...proposals);
+      startAtKey = pagination?.nextKey;
+    } while (startAtKey && startAtKey.length !== 0);
+
+    return allProposals;
+  }, [query.gov]);
+
   const getMinDepositParams = useCallback(async () => {
     const params = await query.gov.params("deposit");
     return getMinDepositFromAllMinDeposit(
@@ -216,6 +261,8 @@ export const useGovAPI = (): IGovAPI => {
       signSubmitProposalTx,
       signVoteProposalTx,
       signDepositProposalTx,
+      getParticipatedProposals,
+      getAllProposals,
     }),
     [
       getMinDepositParams,
@@ -223,6 +270,8 @@ export const useGovAPI = (): IGovAPI => {
       signSubmitProposalTx,
       signVoteProposalTx,
       signDepositProposalTx,
+      getParticipatedProposals,
+      getAllProposals,
     ]
   );
 };
