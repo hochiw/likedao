@@ -30,13 +30,10 @@ import {
 
 export type FilterKey = "all" | "active" | "inactive";
 
-interface ValidatorsQuery {
-  (pageSize: number): {
-    fetch: () => Promise<void>;
-    requestState: RequestState<ValidatorScreenModel>;
-  };
-}
-export const useValidatorsQuery: ValidatorsQuery = () => {
+export const useValidatorsQuery = (): {
+  fetch: () => Promise<void>;
+  requestState: RequestState<ValidatorScreenModel>;
+} => {
   const [requestState, setRequestState] =
     useState<RequestState<ValidatorScreenModel>>(RequestStateInitial);
   const wallet = useWallet();

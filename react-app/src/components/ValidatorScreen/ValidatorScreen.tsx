@@ -1,6 +1,7 @@
-import React, { useCallback, useMemo } from "react";
+import React, { useCallback, useEffect, useMemo } from "react";
 import cn from "classnames";
 import { Link, useSearchParams } from "react-router-dom";
+import { BondStatus } from "cosmjs-types/cosmos/staking/v1beta1/staking";
 import Paper from "../common/Paper/Paper";
 import { Icon, IconType } from "../common/Icons/Icons";
 import LocalizedText from "../common/Localized/LocalizedText";
@@ -8,7 +9,14 @@ import FilterTabs, { IFilterTabItem } from "../Tabs/FilterTabs";
 import * as Table from "../common/Table";
 import AppRoutes from "../../navigation/AppRoutes";
 import PageContoller from "../common/PageController/PageController";
-import { FilterKey } from "./ValidatorScreenAPI";
+import { usePagination } from "../../hooks/usePagination";
+import {
+  isRequestStateLoaded,
+  isRequestStateLoading,
+} from "../../models/RequestState";
+import { useWallet } from "../../providers/WalletProvider";
+import { FilterKey, useValidatorsQuery } from "./ValidatorScreenAPI";
+import { AggregatedValidator } from "./ValidatorScreenModel";
 
 const VALIDATOR_LIST_PAGE_SIZE = 20;
 
@@ -32,6 +40,7 @@ const defaultTabItems: ValidatorTabItem[] = [
 const defaultTabItem = defaultTabItems[0];
 
 const ValidatorScreen: React.FC = () => {
+  const wallet = useWallet();
   const [searchParams, setSearchParams] = useSearchParams({
     tab: defaultTabItem.value,
     page: "1",
@@ -68,14 +77,39 @@ const ValidatorScreen: React.FC = () => {
     [setSearchParams]
   );
 
-  const dummyItems: any[] = new Array(20).fill(null).map((_, i) => ({
-    validator: {
-      operatorAddress: `like1${i}`,
-      description: {
-        moniker: `Validator #${i}`,
-      },
-    },
-  }));
+  const { requestState, fetch: fetchValidators } = useValidatorsQuery(
+    VALIDATOR_LIST_PAGE_SIZE
+  );
+
+  const validators = useMemo(() => {
+    if (!isRequestStateLoaded(requestState)) return [];
+    return requestState.data.aggregatedValidators.filter((v) => {
+      switch (selectedTab) {
+        case "all":
+          return true;
+        case "active":
+          return (
+            !v.validator.jailed &&
+            v.validator.status === BondStatus.BOND_STATUS_BONDED
+          );
+        case "inactive":
+          return v.validator.jailed;
+        default:
+          return false;
+      }
+    });
+  }, [requestState, selectedTab]);
+
+  const paginatedValidators = usePagination(
+    validators,
+    after,
+    VALIDATOR_LIST_PAGE_SIZE
+  );
+
+  useEffect(() => {
+    // eslint-disable-next-line @typescript-eslint/no-floating-promises
+    fetchValidators();
+  }, [fetchValidators, wallet]);
 
   return (
     <Paper className={cn("flex", "flex-col")}>
@@ -105,8 +139,11 @@ const ValidatorScreen: React.FC = () => {
           onSelectTab={handleSelectTab}
         />
 
-        <Table.Table items={dummyItems}>
-          <Table.Column<any>
+        <Table.Table
+          items={paginatedValidators}
+          isLoading={isRequestStateLoading(requestState)}
+        >
+          <Table.Column<AggregatedValidator>
             id="name"
             titleId="ValidatorScreen.validatorList.name"
             sortable={true}
@@ -131,7 +168,7 @@ const ValidatorScreen: React.FC = () => {
                         item.validator.operatorAddress
                       )}
                     >
-                      {item.validator.description.moniker}
+                      {item.validator.description?.moniker}
                     </Link>
                   </h3>
                   <p
@@ -139,21 +176,29 @@ const ValidatorScreen: React.FC = () => {
                       "text-xs",
                       "font-medium",
                       "leading-[14px]",
-                      "text-app-vote-color-yes"
+                      item.validator.jailed
+                        ? "text-app-vote-color-no"
+                        : "text-app-vote-color-yes"
                     )}
                   >
-                    <LocalizedText messageID="StakesPanel.active" />
+                    <LocalizedText
+                      messageID={
+                        item.validator.jailed
+                          ? "ValidatorScreen.validatorList.inactive"
+                          : "ValidatorScreen.validatorList.active"
+                      }
+                    />
                   </p>
                 </div>
               </div>
             )}
           </Table.Column>
-          <Table.Column<any>
+          <Table.Column<AggregatedValidator>
             id="votingPower"
             titleId="ValidatorScreen.validatorList.votingPower"
             sortable={true}
           >
-            {(_) => (
+            {(item) => (
               <span
                 className={cn(
                   "font-normal",
@@ -162,16 +207,16 @@ const ValidatorScreen: React.FC = () => {
                   "text-gray-500"
                 )}
               >
-                8.35%
+                {`${(item.validator.votingPower * 100).toFixed(2)}%`}
               </span>
             )}
           </Table.Column>
-          <Table.Column<any>
+          <Table.Column<AggregatedValidator>
             id="staked"
             titleId="ValidatorScreen.validatorList.staked"
             sortable={true}
           >
-            {(_) => (
+            {(item) => (
               <span
                 className={cn(
                   "font-normal",
@@ -180,16 +225,16 @@ const ValidatorScreen: React.FC = () => {
                   "text-gray-500"
                 )}
               >
-                3.12
+                {item.stake ? item.stake.balance.amount.toFixed(2) : "-"}
               </span>
             )}
           </Table.Column>
-          <Table.Column<any>
+          <Table.Column<AggregatedValidator>
             id="rewards"
             titleId="ValidatorScreen.validatorList.rewards"
             sortable={true}
           >
-            {(_) => (
+            {(item) => (
               <span
                 className={cn(
                   "font-normal",
@@ -198,16 +243,16 @@ const ValidatorScreen: React.FC = () => {
                   "text-gray-500"
                 )}
               >
-                0.017752492
+                {item.stake ? item.stake.reward.amount.toString() : "-"}
               </span>
             )}
           </Table.Column>
-          <Table.Column<any>
+          <Table.Column<AggregatedValidator>
             id="expectedReturns"
             titleId="ValidatorScreen.validatorList.expectedReturns"
             sortable={true}
           >
-            {(_) => (
+            {(item) => (
               <span
                 className={cn(
                   "font-normal",
@@ -216,16 +261,16 @@ const ValidatorScreen: React.FC = () => {
                   "text-gray-500"
                 )}
               >
-                15.76%
+                {`${(item.validator.expectedReturn * 100).toFixed(2)}%`}
               </span>
             )}
           </Table.Column>
-          <Table.Column<any>
+          <Table.Column<AggregatedValidator>
             id="participations"
             titleId="ValidatorScreen.validatorList.participations"
             sortable={true}
           >
-            {(_) => (
+            {(item) => (
               <div className={cn("flex")}>
                 <span
                   className={cn(
@@ -239,7 +284,8 @@ const ValidatorScreen: React.FC = () => {
                     "px-2.5"
                   )}
                 >
-                  10/15
+                  {item.validator.participatedProposalCount}/
+                  {item.validator.relativeTotalProposalCount}
                 </span>
               </div>
             )}
@@ -249,7 +295,7 @@ const ValidatorScreen: React.FC = () => {
             titleId="ValidatorScreen.validatorList.uptime"
             sortable={true}
           >
-            {(_) => (
+            {(item) => (
               <span
                 className={cn(
                   "font-normal",
@@ -258,7 +304,7 @@ const ValidatorScreen: React.FC = () => {
                   "text-gray-500"
                 )}
               >
-                100%
+                {`${(item.uptime * 100).toFixed(2)}%`}
               </span>
             )}
           </Table.Column>
@@ -267,7 +313,7 @@ const ValidatorScreen: React.FC = () => {
         <PageContoller
           offsetBased={true}
           pageSize={VALIDATOR_LIST_PAGE_SIZE}
-          totalItems={1000}
+          totalItems={validators.length}
           currentOffset={after}
           onPageChange={setPage}
         />
